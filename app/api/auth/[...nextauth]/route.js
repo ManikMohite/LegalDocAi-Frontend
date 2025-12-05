@@ -4,24 +4,9 @@ import GitHubProvider from "next-auth/providers/github";
 import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-async function verifyUser(email, password) {
-  try {
-    const res = await fetch(`${process.env.API_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await res.json();
-    if (res.ok && data.success) return data.data;
-
-    return null;
-  } catch (err) {
-    console.error("Login API failed:", err);
-    return null;
-  }
-}
-
+import User from "@/lib/models/user";
+import bcrypt from "bcryptjs";
+import dbConnect from "@/lib/dbConnect";
 
 const handler = NextAuth({
   providers: [
@@ -35,7 +20,7 @@ const handler = NextAuth({
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
     }),
 
-      FacebookProvider({
+    FacebookProvider({
       clientId: process.env.FACEBOOK_CLIENT_ID,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
     }),
@@ -48,16 +33,34 @@ const handler = NextAuth({
       },
 
       async authorize(credentials) {
-        console.log("Credentials received:", credentials);
+        if (!credentials.email || !credentials.password) {
+          console.log("Missing email or password");
+          return null;
+        }
 
-        const user = await verifyUser(credentials.email, credentials.password);
+        await dbConnect();
 
-        // if login failed → NextAuth returns 401
-        if (!user) return null;
+        // 1️⃣ Find user
+        const user = await User.findOne({ email: credentials.email });
+        console.log("User found:", user);
 
-        // MUST return this shape
+        if (!user) {
+          console.log("User not found");
+          return null;
+        }
+
+        // 2️⃣ Compare password
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+        console.log("Password valid:", isValid);
+
+        if (!isValid) {
+          console.log("Wrong password");
+          return null;
+        }
+
+        // 3️⃣ Return user to NextAuth
         return {
-          id: user._id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email,
         };
@@ -79,8 +82,10 @@ const handler = NextAuth({
     },
 
     async session({ session, token }) {
-      session.user.id = token.id;
-      session.user.email = token.email;
+      if (token) {
+        session.user.id = token.id;
+        session.user.email = token.email;
+      }
       return session;
     },
   },
