@@ -853,6 +853,8 @@
       </div>
     </div>
 
+    <script src="config.js"></script>
+
     <script>
       // Initialize jsPDF
       window.jsPDF = window.jspdf.jsPDF;
@@ -945,7 +947,7 @@
         `;
 
           try {
-            const response = await fetch("http://127.0.0.1:5000/classify", {
+           const response = await fetch(`${window.API_URL}/classify`, {
               method: "POST",
               body: formData,
             });
@@ -1004,7 +1006,7 @@
         `;
 
           try {
-            const response = await fetch("http://127.0.0.1:5000/process", {
+            const response = await fetch(`${window.API_URL}/process`, {
               method: "POST",
               body: formData,
             });
@@ -1327,10 +1329,11 @@ async function sendMessage() {
     // ===========================
     //     SEND REQUEST
     // ===========================
-    const response = await fetch("http://127.0.0.1:5000/general_chat", {
+     const response = await fetch(`${window.API_URL}/general_chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+
       },
       credentials: "include",   // <-- MOST IMPORTANT (cookie/session)
       body: JSON.stringify({
